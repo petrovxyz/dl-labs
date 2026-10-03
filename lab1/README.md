@@ -8,7 +8,7 @@ Python 3.12, версії залежностей зафіксовано в `pypr
 
 ```bash
 cd lab1
-uv sync --frozen
+uv sync --locked
 uv run main.py            # правильна реалізація: звірка з PyTorch + чисельна перевірка → results.md
 uv run main.py --buggy    # дослід без ділення на N у градієнті за логітами → results_buggy.md
 ```
