@@ -10,7 +10,7 @@ import numpy as np
 from rich.console import Console
 from rich.panel import Panel
 
-from checks import EPS, TOL_NUM, run_numerical_gradient_checks
+from checks import EPS, TOL_NUM, run_numerical_gradient_checks, step_sensitivity
 from data import load_and_prepare_iris
 from model_numpy import backward, cross_entropy_loss, forward, initialize_parameters
 from model_torch import torch_reference
@@ -107,6 +107,22 @@ def numerical_section(results, title) -> Section:
     )
 
 
+def step_section(table) -> Section:
+    rows = []
+    for h, cells in table:
+        rows.append(
+            [f"{h:.0e}"]
+            + [fmt(diff) + ("" if same_mask else " *") for diff, same_mask in cells]
+        )
+    return Section(
+        "Залежність похибки чисельної похідної від кроку h",
+        ["h", "W1[0, 0]", "b1[0]", "W2[0, 0]", "b2[0]"],
+        rows,
+        note="|g_num − g_manual|; * — збурення змінило маску ReLU. Критерій ЛР1 застосовується лише до h = 1e-06.",
+        left_cols={0},
+    )
+
+
 def prepare():
     X_train, y_train, X_test, y_test = load_and_prepare_iris()
     assert X_train.shape == (105, 4) and X_test.shape == (45, 4)
@@ -142,6 +158,7 @@ def run_correct(console: Console) -> None:
     sections.append(cmp_section)
     results = run_numerical_gradient_checks(X, y, W1, b1, W2, b2, *grads)
     sections.append(numerical_section(results, "Чисельна перевірка градієнтів"))
+    sections.append(step_section(step_sensitivity(X, y, W1, b1, W2, b2, *grads)))
 
     for section in sections:
         show(console, section)
