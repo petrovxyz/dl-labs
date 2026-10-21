@@ -1,0 +1,22 @@
+{
+  "rule": "fraud if s >= t",
+  "cost": "C = 10*FN + FP",
+  "selected_on": "validation",
+  "t_star": 0.031193923205137253,
+  "t_star_float32_hex": "0x1.ff14cc0000000p-6",
+  "validation": {
+    "TP": 82,
+    "FP": 34,
+    "FN": 16,
+    "TN": 56829,
+    "C": 194
+  },
+  "n_candidates": 55989,
+  "n_thresholds_with_min_cost": 1,
+  "min_cost_threshold_range": [
+    0.031193923205137253,
+    0.031193923205137253
+  ],
+  "roc_auc_validation": 0.97331771637308,
+  "average_precision_validation": 0.7847274206415048
+}
