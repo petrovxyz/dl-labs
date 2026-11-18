@@ -59,7 +59,7 @@ def initial_loss(train_ds, device) -> tuple[str, dict]:
         model, _ = build_model(regime, 1, device)
         loader = train_loader(train_ds)
         set_train_mode(model, frozen_modules(model, regime))
-        # Ознаки після глобального пулінгу - для пояснення відхилення L0 від ln 6.
+        # Ознаки після глобального пулінгу – для пояснення відхилення L0 від ln 6.
         pooled = []
         hook = model.avgpool.register_forward_hook(lambda m, i, o: pooled.append(o.flatten(1)))
         losses, sizes = [], []
@@ -137,7 +137,7 @@ def param_report(device) -> tuple[str, bool]:
         )
         del model, opt
     lines.append("")
-    lines.append("Кількість параметрів - сума `numel()`; в усіх групах `weight_decay=1e-4`.")
+    lines.append("Кількість параметрів – сума `numel()`; в усіх групах `weight_decay=1e-4`.")
     return "\n".join(lines), all_ok
 
 

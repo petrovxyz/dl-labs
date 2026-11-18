@@ -54,7 +54,7 @@ def build_model(regime: str, seed: int, device: torch.device):
         trainable = name in cfg["trainable"]
         for p in module.parameters():
             p.requires_grad_(trainable)
-    # Оптимізатор - після заміни fc і лише з параметрами, що навчаються.
+    # Оптимізатор – після заміни fc і лише з параметрами, що навчаються.
     model.to(device)
     groups = []
     for modules, lr in cfg["groups"]:

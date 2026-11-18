@@ -1,6 +1,6 @@
 # Результати команди аналізу
 
-SHA-256 `split.csv`: `148dad92de9a18670c177df9f8757aa6519fb0ea6d74a8ba723cfc4453f0a1bc` - однаковий у всіх 7 журналах.
+SHA-256 `split.csv`: `148dad92de9a18670c177df9f8757aa6519fb0ea6d74a8ba723cfc4453f0a1bc` – однаковий у всіх 7 журналах.
 
 ## Сім запусків
 
@@ -37,7 +37,7 @@ SHA-256 `split.csv`: `148dad92de9a18670c177df9f8757aa6519fb0ea6d74a8ba723cfc4453
 | unfreeze | 0.8772 |
 
 Правило вибору за журналами: режим **frozen**, у ньому запуск із найбільшим $F_{r,s}$: зерно **3**, $F = 0.8886$.
-`lab3_model.pt`: regime = `frozen`, seed = 3, img_size = 160 - **відповідає правилу**.
+`lab3_model.pt`: regime = `frozen`, seed = 3, img_size = 160 – **відповідає правилу**.
 Ваги `lab3_model.pt` на CPU відтворюють збережені логіти validation цього запуску: збіг argmax 1.0000, max |Δлогіт| = 4.95e-05, macro-F1 на CPU 0.8886.
 
 |Δ_unf| = 0.0065 ≤ R = 0.0240: вибір між frozen і unfreeze визначив шум.

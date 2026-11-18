@@ -30,7 +30,7 @@ macro-F1, перераховані зі збережених val_logits.npy, з�
 | unfreeze | 0.8772 |
 
 Правило вибору за журналами: режим **frozen**, у ньому запуск із найбільшим $F_{r,s}$: зерно **3**, $F = 0.8886$.
-`lab3_model.pt`: regime = `frozen`, seed = 3, img_size = 160 - **відповідає правилу**.
+`lab3_model.pt`: regime = `frozen`, seed = 3, img_size = 160 – **відповідає правилу**.
 Ваги `lab3_model.pt` на CPU відтворюють збережені логіти validation цього запуску: збіг argmax 1.0000, max |Δлогіт| = 4.95e-05, macro-F1 на CPU 0.8886.
 
 Модель: `lab3_model.pt` (frozen, зерно 3), обчислення на CPU, n = 1502.

@@ -204,7 +204,7 @@ def check_selection(runs: list[dict], ckpt: dict, model: nn.Module, val_loader, 
         f"Правило вибору за журналами: режим **{choice['regime']}**, у ньому запуск із найбільшим "
         f"$F_{{r,s}}$: зерно **{choice['seed']}**, $F = {f4(choice['F'])}$.",
         f"`{P.model_path.name}`: regime = `{ckpt['regime']}`, seed = {ckpt['seed']}, "
-        f"img_size = {ckpt['img_size']} - **відповідає правилу**.",
+        f"img_size = {ckpt['img_size']} – **відповідає правилу**.",
         f"Ваги `{P.model_path.name}` на CPU відтворюють збережені логіти validation цього запуску: "
         f"збіг argmax {agree:.4f}, max |Δлогіт| = {max_diff:.2e}, macro-F1 на CPU {f4(f_cpu)}.",
     ]
@@ -244,7 +244,7 @@ def confusion_table(cm: np.ndarray) -> str:
 
 
 def five_errors(cm: np.ndarray, files: list[str], y: np.ndarray, pred: np.ndarray, probs: np.ndarray) -> list[dict]:
-    """П'ять найчастіших позадіагональних пар (за рівних - за індексами класів), перший файл кожної.
+    """П'ять найчастіших позадіагональних пар (за рівних – за індексами класів), перший файл кожної.
 
     Якщо пар менше п'яти, беруться другі файли пар у тому самому порядку, і так далі.
     """
@@ -290,7 +290,7 @@ def main() -> None:
     ap.add_argument("--data", required=True, type=Path,
                     help="тека розпакованого архіву (містить seg_train/ і seg_test/)")
     ap.add_argument("--out", type=Path, default=None,
-                    help="тека результатів (split.csv, runs/, lab3_model.pt, outputs/, figures/); за замовчуванням - тека коду")
+                    help="тека результатів (split.csv, runs/, lab3_model.pt, outputs/, figures/); за замовчуванням – тека коду")
     args = ap.parse_args()
     if args.out is not None:
         P.set_root(args.out)
@@ -321,7 +321,7 @@ def main() -> None:
         f"|Δ_unf| = {abs(eff['delta_unf']):.4f} > R = {eff['R']:.4f}."
     )
 
-    # Test - один раз, на CPU, лише для вибраної моделі.
+    # Test – один раз, на CPU, лише для вибраної моделі.
     test_ds = load_test_set(args.data)
     test_logits, y = predict_logits(model, eval_loader(test_ds), CPU)
     files = [r["file"] for r in test_ds.rows]
@@ -366,7 +366,7 @@ def main() -> None:
 
     report = "\n\n".join([
         "# Результати команди аналізу",
-        f"SHA-256 `split.csv`: `{sha256_file(P.split_csv)}` - однаковий у всіх 7 журналах.",
+        f"SHA-256 `split.csv`: `{sha256_file(P.split_csv)}` – однаковий у всіх 7 журналах.",
         "## Сім запусків\n\n" + table_md,
         "## Розклад ефектів\n\n" + effects_md,
         "## Вибір конфігурації\n\n" + selection_md + "\n\n" + noise_note,

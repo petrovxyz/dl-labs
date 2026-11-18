@@ -16,7 +16,7 @@ LAB_DIR = Path(__file__).resolve().parent
 
 
 class Paths:
-    """Тека результатів: split.csv, runs/, lab3_model.pt, outputs/, figures/ (за замовчуванням - тека коду)."""
+    """Тека результатів: split.csv, runs/, lab3_model.pt, outputs/, figures/ (за замовчуванням – тека коду)."""
 
     def __init__(self, root: Path):
         self.set_root(root)

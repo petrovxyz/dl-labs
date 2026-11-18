@@ -33,7 +33,7 @@ def main() -> None:
     ap.add_argument("--data", required=True, type=Path,
                     help="тека розпакованого архіву (містить seg_train/ і seg_test/)")
     ap.add_argument("--out", type=Path, default=None,
-                    help="тека результатів (split.csv, runs/, lab3_model.pt, outputs/, figures/); за замовчуванням - тека коду")
+                    help="тека результатів (split.csv, runs/, lab3_model.pt, outputs/, figures/); за замовчуванням – тека коду")
     ap.add_argument("--device", default="auto", help="auto | cpu | mps | cuda")
     ap.add_argument("--checks-only", action="store_true", help="лише поділ і перевірки, без запусків")
     args = ap.parse_args()
@@ -54,7 +54,7 @@ def main() -> None:
     log(split_md)
     log(f"SHA-256 split.csv: {split_sha}")
     if not split_ok:
-        sys.exit("Поділ не збігається з контрольною таблицею - зупинка.")
+        sys.exit("Поділ не збігається з контрольною таблицею – зупинка.")
 
     train_ds = load_part(args.data, "train", rows)
     val_ds = load_part(args.data, "validation", rows)
@@ -90,7 +90,7 @@ def main() -> None:
         "bn_bug": {k: {kk: vv for kk, vv in v.items() if kk != "changes"} for k, v in bug_data.items()},
     })
     if not (params_ok and change_ok):
-        sys.exit("Перевірки режимів не збіглися з очікуваними - зупинка.")
+        sys.exit("Перевірки режимів не збіглися з очікуваними – зупинка.")
     log("Усі перевірки збіглися з очікуваними.")
     if args.checks_only:
         return
