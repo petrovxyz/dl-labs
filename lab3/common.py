@@ -1,4 +1,4 @@
-"""Спільні константи й службові функції ЛР3."""
+"""Спільні константи й службові функції."""
 
 from __future__ import annotations
 
@@ -13,11 +13,24 @@ import torch
 import torchvision
 
 LAB_DIR = Path(__file__).resolve().parent
-SPLIT_CSV = LAB_DIR / "split.csv"
-RUNS_DIR = LAB_DIR / "runs"
-FIG_DIR = LAB_DIR / "figures"
-OUT_DIR = LAB_DIR / "outputs"
-MODEL_PATH = LAB_DIR / "lab3_model.pt"
+
+
+class Paths:
+    """Тека результатів: split.csv, runs/, lab3_model.pt, outputs/, figures/ (за замовчуванням - тека коду)."""
+
+    def __init__(self, root: Path):
+        self.set_root(root)
+
+    def set_root(self, root: Path) -> None:
+        self.root = Path(root).resolve()
+        self.split_csv = self.root / "split.csv"
+        self.runs_dir = self.root / "runs"
+        self.fig_dir = self.root / "figures"
+        self.out_dir = self.root / "outputs"
+        self.model_path = self.root / "lab3_model.pt"
+
+
+P = Paths(LAB_DIR)
 
 CLASSES = ["buildings", "forest", "glacier", "mountain", "sea", "street"]
 NUM_CLASSES = len(CLASSES)
@@ -30,7 +43,7 @@ TRAIN_BATCH = 32
 EVAL_BATCH = 64
 WEIGHT_DECAY = 1e-4
 
-# Сім запусків протоколу: (номер, режим, зерно).
+# Сім запусків: (номер, режим, зерно).
 RUNS = [
     (1, "scratch", 1),
     (2, "frozen", 1),
@@ -43,7 +56,7 @@ RUNS = [
 
 
 def run_dir(regime: str, seed: int) -> Path:
-    return RUNS_DIR / f"{regime}_seed{seed}"
+    return P.runs_dir / f"{regime}_seed{seed}"
 
 
 def sha256_file(path: Path) -> str:
@@ -79,7 +92,7 @@ def _mac_chip() -> str:
 
 
 def git_info() -> dict:
-    """Хеш коміту і незакомічені зміни коду ЛР3 (*.py, pyproject.toml, uv.lock)."""
+    """Хеш коміту і незакомічені зміни коду (*.py, pyproject.toml, uv.lock) цієї теки."""
 
     def git(*args: str) -> str:
         return subprocess.run(
@@ -116,9 +129,10 @@ def read_json(path: Path):
 
 
 def select_run(records: list[dict]) -> dict:
-    """Правило вибору за validation: режим з найбільшим F̄ (для scratch - його єдине значення),
-    серед запусків цього режиму - запуск з найбільшим F (за рівних F - менше зерно).
-    records: [{"regime", "seed", "F"}]."""
+    """Вибір за validation: режим з найбільшим F̄, у ньому запуск з найбільшим F.
+
+    records: [{"regime", "seed", "F"}]; за рівних F перевага меншому зерну.
+    """
     by_regime: dict[str, list[dict]] = {}
     for r in records:
         by_regime.setdefault(r["regime"], []).append(r)

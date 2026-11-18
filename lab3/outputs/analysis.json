@@ -1,0 +1,130 @@
+{
+  "effects": {
+    "F_scratch_1": 0.2856531387342444,
+    "F_frozen_mean": 0.8837657141829945,
+    "R_frozen": 0.010095240174428088,
+    "F_unfreeze_mean": 0.8772280406035087,
+    "R_unfreeze": 0.023993877434928867,
+    "R": 0.023993877434928867,
+    "delta_pre": 0.5981125754487502,
+    "delta_unf": -0.00653767357948587,
+    "delta_total": 0.5915749018692642,
+    "verdict_pre": "|Δ| > R: ефект вартий перевірки, але не доведений",
+    "verdict_unf": "|Δ| ≤ R: різниця не відрізняється від розкиду, результату немає"
+  },
+  "selection": {
+    "regime": "frozen",
+    "seed": 3,
+    "F": 0.8885955696095422,
+    "regime_means": {
+      "scratch": 0.2856531387342444,
+      "frozen": 0.8837657141829945,
+      "unfreeze": 0.8772280406035087
+    },
+    "val_argmax_agreement_cpu": 1.0,
+    "val_max_abs_logit_diff": 4.953145980834961e-05,
+    "val_macro_f1_cpu": 0.8885955696095422
+  },
+  "noise_note": "|Δ_unf| = 0.0065 ≤ R = 0.0240: вибір між frozen і unfreeze визначив шум.",
+  "test": {
+    "macro_f1": 0.891912624642122,
+    "accuracy": 0.8901464713715047,
+    "n": 1502,
+    "se_accuracy": 0.008068685291986602,
+    "confusion_matrix": [
+      [
+        187,
+        2,
+        0,
+        1,
+        2,
+        27
+      ],
+      [
+        0,
+        237,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        215,
+        49,
+        10,
+        2
+      ],
+      [
+        1,
+        0,
+        40,
+        212,
+        10,
+        0
+      ],
+      [
+        2,
+        1,
+        1,
+        1,
+        250,
+        0
+      ],
+      [
+        12,
+        0,
+        0,
+        2,
+        1,
+        236
+      ]
+    ],
+    "classes": [
+      "buildings",
+      "forest",
+      "glacier",
+      "mountain",
+      "sea",
+      "street"
+    ]
+  },
+  "errors": [
+    {
+      "file": "20179.jpg",
+      "true": "glacier",
+      "pred": "mountain",
+      "prob_pred": 0.8772463798522949,
+      "pair_count": 49
+    },
+    {
+      "file": "20116.jpg",
+      "true": "mountain",
+      "pred": "glacier",
+      "prob_pred": 0.6006876826286316,
+      "pair_count": 40
+    },
+    {
+      "file": "20083.jpg",
+      "true": "buildings",
+      "pred": "street",
+      "prob_pred": 0.5937591791152954,
+      "pair_count": 27
+    },
+    {
+      "file": "20353.jpg",
+      "true": "street",
+      "pred": "buildings",
+      "prob_pred": 0.8439221382141113,
+      "pair_count": 12
+    },
+    {
+      "file": "20243.jpg",
+      "true": "glacier",
+      "pred": "sea",
+      "prob_pred": 0.8064771890640259,
+      "pair_count": 10
+    }
+  ]
+}

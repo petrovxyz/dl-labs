@@ -1,0 +1,233 @@
+{
+  "run": 7,
+  "regime": "unfreeze",
+  "seed": 3,
+  "settings": {
+    "classes": [
+      "buildings",
+      "forest",
+      "glacier",
+      "mountain",
+      "sea",
+      "street"
+    ],
+    "img_size": 160,
+    "transforms": {
+      "train": [
+        {
+          "name": "RandomResizedCrop",
+          "size": [
+            160,
+            160
+          ],
+          "scale": [
+            0.7,
+            1.0
+          ],
+          "ratio": [
+            0.75,
+            1.3333333333333333
+          ],
+          "interpolation": "bilinear",
+          "antialias": true
+        },
+        {
+          "name": "RandomHorizontalFlip",
+          "p": 0.5
+        },
+        {
+          "name": "ToTensor"
+        },
+        {
+          "name": "Normalize",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        }
+      ],
+      "validation_test": [
+        {
+          "name": "Resize",
+          "size": [
+            160,
+            160
+          ],
+          "interpolation": "bilinear",
+          "max_size": null,
+          "antialias": true
+        },
+        {
+          "name": "ToTensor"
+        },
+        {
+          "name": "Normalize",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        }
+      ],
+      "test_time_augmentation": false
+    },
+    "model": {
+      "regime": "unfreeze",
+      "architecture": "torchvision.models.resnet18",
+      "weights": "ResNet18_Weights.IMAGENET1K_V1",
+      "fc": "torch.nn.Linear(512, 6), стандартна ініціалізація",
+      "zero_init_residual": false,
+      "trainable_modules": [
+        "layer4",
+        "fc"
+      ],
+      "eval_modules_during_training": [
+        "conv1",
+        "bn1",
+        "layer1",
+        "layer2",
+        "layer3"
+      ],
+      "total_params": 11179590,
+      "trainable_params": 8396806,
+      "batchnorm": {
+        "momentum": 0.1,
+        "eps": 1e-05,
+        "affine": true,
+        "track_running_stats": true
+      },
+      "optimizer": {
+        "name": "torch.optim.AdamW",
+        "param_groups": [
+          {
+            "lr": 0.003,
+            "name": "fc",
+            "betas": [
+              0.9,
+              0.999
+            ],
+            "eps": 1e-08,
+            "weight_decay": 0.0001,
+            "amsgrad": false,
+            "maximize": false,
+            "foreach": null,
+            "capturable": false,
+            "differentiable": false,
+            "fused": null,
+            "decoupled_weight_decay": true,
+            "num_params": 3078
+          },
+          {
+            "lr": 0.0003,
+            "name": "layer4",
+            "betas": [
+              0.9,
+              0.999
+            ],
+            "eps": 1e-08,
+            "weight_decay": 0.0001,
+            "amsgrad": false,
+            "maximize": false,
+            "foreach": null,
+            "capturable": false,
+            "differentiable": false,
+            "fused": null,
+            "decoupled_weight_decay": true,
+            "num_params": 8393728
+          }
+        ]
+      },
+      "loss": {
+        "name": "torch.nn.CrossEntropyLoss",
+        "reduction": "mean",
+        "label_smoothing": 0.0,
+        "weight": null
+      },
+      "lr_scheduler": null,
+      "grad_clipping": null,
+      "mixed_precision": false,
+      "dtype": "float32",
+      "early_stopping": false,
+      "epoch_selection_by_validation": false
+    },
+    "loaders": {
+      "train": {
+        "batch_size": 32,
+        "shuffle": true,
+        "drop_last": false,
+        "num_workers": 0,
+        "generator": null,
+        "sampler": null
+      },
+      "validation_test": {
+        "batch_size": 64,
+        "shuffle": false,
+        "drop_last": false,
+        "num_workers": 0,
+        "order": "як у split.csv"
+      }
+    },
+    "epochs": 8,
+    "steps_per_epoch": 38,
+    "optimizer_steps": 304,
+    "seeding": "torch.manual_seed(seed); np.random.seed(seed) перед побудовою моделі",
+    "train_loss_definition": "sum_b L_b*|b| / 1200, L_b - середня CE пакета до кроку",
+    "validation_metric": "sklearn f1_score(average='macro') після кожної епохи, model.eval()",
+    "weights_used": "після 8-ї епохи"
+  },
+  "git": {
+    "commit": "c7a1282e586e50bce076ac5e73e3cc6c1465285e",
+    "dirty": false,
+    "dirty_files": []
+  },
+  "split_csv_sha256": "148dad92de9a18670c177df9f8757aa6519fb0ea6d74a8ba723cfc4453f0a1bc",
+  "env": {
+    "python": "3.12.11",
+    "torch": "2.14.1",
+    "torchvision": "0.29.2",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "device": "mps: Apple arm64 (Apple M4 Pro)"
+  },
+  "history": {
+    "train_loss": [
+      0.5303412636121114,
+      0.20557368914286295,
+      0.11689403449495633,
+      0.09679061976571877,
+      0.07198248812307914,
+      0.06155908960228165,
+      0.08560301264437536,
+      0.15386372171342372
+    ],
+    "val_macro_f1": [
+      0.8084469074192301,
+      0.8996683796525821,
+      0.8835494482753906,
+      0.90608705658276,
+      0.8971277787288742,
+      0.8853350284018245,
+      0.8968634119057954,
+      0.8855455317565283
+    ]
+  },
+  "final": {
+    "train_loss": 0.15386372171342372,
+    "val_macro_f1": 0.8855455317565283
+  },
+  "time_seconds": {
+    "train_steps": 11.86023599980399,
+    "total_with_validation": 22.5905149159953
+  },
+  "finished_at": "2026-11-18T21:11:16"
+}

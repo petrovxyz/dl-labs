@@ -1,0 +1,6 @@
+file,true,pred,prob_pred,pair_count
+20179.jpg,glacier,mountain,0.8772463798522949,49
+20116.jpg,mountain,glacier,0.6006876826286316,40
+20083.jpg,buildings,street,0.5937591791152954,27
+20353.jpg,street,buildings,0.8439221382141113,12
+20243.jpg,glacier,sea,0.8064771890640259,10

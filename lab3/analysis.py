@@ -1,8 +1,8 @@
-"""Команда аналізу ЛР3.
+"""Команда аналізу.
 
-1. Перевірка: SHA-256 split.csv однаковий у всіх семи журналах і збігається з поточним файлом.
-2. Зі збережених журналів: таблиця семи запусків, криві, розклад ефектів, перевірка вибору.
-3. Лише потім, один раз і на CPU: test для lab3_model.pt, матриця плутанини, п'ять помилок.
+1. SHA-256 split.csv однаковий у всіх журналах і збігається з поточним файлом.
+2. З журналів: таблиця запусків, криві, ефекти, перевірка вибору.
+3. Один раз, на CPU: test для lab3_model.pt, матриця плутанини, п'ять помилок.
 
     uv run python analysis.py --data /шлях/до/intel-image-classification
 """
@@ -27,7 +27,7 @@ from torch import nn  # noqa: E402
 from torchvision.models import resnet18  # noqa: E402
 
 from common import (  # noqa: E402
-    CLASSES, FIG_DIR, IMG_SIZE, MODEL_PATH, NUM_CLASSES, OUT_DIR, RUNS, SPLIT_CSV, read_json, run_dir,
+    CLASSES, P, IMG_SIZE, NUM_CLASSES, RUNS, read_json, run_dir,
     select_run, sha256_file, write_json,
 )
 from data import eval_loader, load_part, load_test_set, part_rows, read_split, test_dir  # noqa: E402
@@ -54,7 +54,7 @@ def pp(x: float) -> str:
 # ------------------------------------------------------------------ журнали
 
 def load_runs() -> list[dict]:
-    current = sha256_file(SPLIT_CSV)
+    current = sha256_file(P.split_csv)
     runs = []
     for num, regime, seed in RUNS:
         path = run_dir(regime, seed) / "run.json"
@@ -165,14 +165,14 @@ def effects(runs: list[dict]) -> tuple[str, dict]:
 # ------------------------------------------------------------------ вибір
 
 def load_selected_model() -> tuple[nn.Module, dict]:
-    if not MODEL_PATH.exists():
-        fail(f"немає {MODEL_PATH.name}")
-    ckpt = torch.load(MODEL_PATH, map_location=CPU, weights_only=True)
+    if not P.model_path.exists():
+        fail(f"немає {P.model_path.name}")
+    ckpt = torch.load(P.model_path, map_location=CPU, weights_only=True)
     expected_keys = {"state_dict", "regime", "seed", "classes", "img_size"}
     if set(ckpt) != expected_keys:
-        fail(f"ключі {MODEL_PATH.name}: {sorted(ckpt)}; очікувано {sorted(expected_keys)}")
+        fail(f"ключі {P.model_path.name}: {sorted(ckpt)}; очікувано {sorted(expected_keys)}")
     if ckpt["classes"] != CLASSES or ckpt["img_size"] != IMG_SIZE:
-        fail(f"classes/img_size у {MODEL_PATH.name} не відповідають умові")
+        fail(f"classes/img_size у {P.model_path.name} не збігаються з CLASSES/IMG_SIZE")
     model = resnet18(weights=None)
     model.fc = nn.Linear(512, NUM_CLASSES)
     model.load_state_dict(ckpt["state_dict"])
@@ -184,9 +184,9 @@ def check_selection(runs: list[dict], ckpt: dict, model: nn.Module, val_loader, 
     records = [{"regime": r["regime"], "seed": r["seed"], "F": r["final"]["val_macro_f1"]} for r in runs]
     choice = select_run(records)
     if (ckpt["regime"], ckpt["seed"]) != (choice["regime"], choice["seed"]):
-        fail(f"{MODEL_PATH.name}: {ckpt['regime']}, зерно {ckpt['seed']}, а правило вибору за журналами дає "
+        fail(f"{P.model_path.name}: {ckpt['regime']}, зерно {ckpt['seed']}, а правило вибору за журналами дає "
              f"{choice['regime']}, зерно {choice['seed']}")
-    # Ваги справді з цього запуску: прогнози validation на CPU vs збережені логіти запуску (MPS/GPU).
+    # Ваги з цього запуску: логіти validation на CPU мають збігтися зі збереженими.
     cpu_logits, labels = predict_logits(model, val_loader, CPU)
     assert np.array_equal(labels, val_labels)
     saved = np.load(run_dir(choice["regime"], choice["seed"]) / "val_logits.npy")
@@ -194,7 +194,7 @@ def check_selection(runs: list[dict], ckpt: dict, model: nn.Module, val_loader, 
     max_diff = float(np.abs(cpu_logits - saved).max())
     f_cpu = macro_f1(labels, cpu_logits)
     if agree < 0.99:
-        fail(f"ваги {MODEL_PATH.name} не відтворюють логіти validation вибраного запуску (збіг {agree:.4f})")
+        fail(f"ваги {P.model_path.name} не відтворюють логіти validation вибраного запуску (збіг {agree:.4f})")
     means = choice["regime_means"]
     lines = [
         "| Режим | $\\bar F_r$ (validation) |",
@@ -203,9 +203,9 @@ def check_selection(runs: list[dict], ckpt: dict, model: nn.Module, val_loader, 
         "",
         f"Правило вибору за журналами: режим **{choice['regime']}**, у ньому запуск із найбільшим "
         f"$F_{{r,s}}$: зерно **{choice['seed']}**, $F = {f4(choice['F'])}$.",
-        f"`{MODEL_PATH.name}`: regime = `{ckpt['regime']}`, seed = {ckpt['seed']}, "
+        f"`{P.model_path.name}`: regime = `{ckpt['regime']}`, seed = {ckpt['seed']}, "
         f"img_size = {ckpt['img_size']} - **відповідає правилу**.",
-        f"Ваги `{MODEL_PATH.name}` на CPU відтворюють збережені логіти validation цього запуску: "
+        f"Ваги `{P.model_path.name}` на CPU відтворюють збережені логіти validation цього запуску: "
         f"збіг argmax {agree:.4f}, max |Δлогіт| = {max_diff:.2e}, macro-F1 на CPU {f4(f_cpu)}.",
     ]
     return "\n".join(lines), {**choice, "val_argmax_agreement_cpu": agree, "val_max_abs_logit_diff": max_diff,
@@ -244,8 +244,10 @@ def confusion_table(cm: np.ndarray) -> str:
 
 
 def five_errors(cm: np.ndarray, files: list[str], y: np.ndarray, pred: np.ndarray, probs: np.ndarray) -> list[dict]:
-    """П'ять найчастіших позадіагональних пар (за рівних - за індексом справжнього, потім передбаченого);
-    для кожної - перший за іменем (як рядок) файл; якщо пар < 5 - другий файл найчастішої пари і т. д."""
+    """П'ять найчастіших позадіагональних пар (за рівних - за індексами класів), перший файл кожної.
+
+    Якщо пар менше п'яти, беруться другі файли пар у тому самому порядку, і так далі.
+    """
     pairs = sorted(
         ((int(cm[i, j]), i, j) for i in range(NUM_CLASSES) for j in range(NUM_CLASSES) if i != j and cm[i, j] > 0),
         key=lambda t: (-t[0], t[1], t[2]),
@@ -287,19 +289,25 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data", required=True, type=Path,
                     help="тека розпакованого архіву (містить seg_train/ і seg_test/)")
+    ap.add_argument("--out", type=Path, default=None,
+                    help="тека результатів (split.csv, runs/, lab3_model.pt, outputs/, figures/); за замовчуванням - тека коду")
     args = ap.parse_args()
-    OUT_DIR.mkdir(exist_ok=True)
-    FIG_DIR.mkdir(exist_ok=True)
+    if args.out is not None:
+        P.set_root(args.out)
+    if not P.runs_dir.exists():
+        fail(f"немає {P.runs_dir}: спершу запустіть train.py з тим самим --out")
+    P.out_dir.mkdir(exist_ok=True)
+    P.fig_dir.mkdir(exist_ok=True)
 
-    # 1. Версія даних.
+    # Версія даних.
     runs = load_runs()
     rows = read_split()
     val_labels = np.array([CLASSES.index(r["label"]) for r in part_rows(rows, "validation")])
     check_val_logits(runs, val_labels)
 
-    # 2. Зі збережених журналів.
+    # Зі збережених журналів.
     table_md = runs_table(runs)
-    curves_figure(runs, FIG_DIR / "curves.png")
+    curves_figure(runs, P.fig_dir / "curves.png")
     effects_md, eff = effects(runs)
     print("\n" + table_md + "\n\n" + effects_md)
 
@@ -313,7 +321,7 @@ def main() -> None:
         f"|Δ_unf| = {abs(eff['delta_unf']):.4f} > R = {eff['R']:.4f}."
     )
 
-    # 3. Test - один раз, на CPU, лише для вибраної моделі.
+    # Test - один раз, на CPU, лише для вибраної моделі.
     test_ds = load_test_set(args.data)
     test_logits, y = predict_logits(model, eval_loader(test_ds), CPU)
     files = [r["file"] for r in test_ds.rows]
@@ -324,18 +332,18 @@ def main() -> None:
     n = len(y)
     se = math.sqrt(acc * (1 - acc) / n)
     cm = confusion_matrix(y, pred, labels=list(range(NUM_CLASSES)))
-    np.save(OUT_DIR / "test_logits.npy", test_logits.astype(np.float32))
-    confusion_figure(cm, FIG_DIR / "confusion_matrix.png",
+    np.save(P.out_dir / "test_logits.npy", test_logits.astype(np.float32))
+    confusion_figure(cm, P.fig_dir / "confusion_matrix.png",
                      f"Test, {sel['regime']} зерно {sel['seed']}: macro-F1 = {f1_test:.4f}")
     errors = five_errors(cm, files, y, pred, probs)
-    errors_figure(errors, args.data, FIG_DIR / "errors.png")
-    with open(OUT_DIR / "errors_test.csv", "w", newline="", encoding="utf-8") as f:
+    errors_figure(errors, args.data, P.fig_dir / "errors.png")
+    with open(P.out_dir / "errors_test.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(errors[0]), lineterminator="\n")
         w.writeheader()
         w.writerows(errors)
 
     test_md = "\n".join([
-        f"Модель: `{MODEL_PATH.name}` ({sel['regime']}, зерно {sel['seed']}), обчислення на CPU, n = {n}.",
+        f"Модель: `{P.model_path.name}` ({sel['regime']}, зерно {sel['seed']}), обчислення на CPU, n = {n}.",
         "",
         "| Величина | Значення |",
         "| :-- | --: |",
@@ -357,22 +365,22 @@ def main() -> None:
     print("\n" + test_md + "\n\n" + err_md)
 
     report = "\n\n".join([
-        "# Результати команди аналізу\n\nЗгенеровано `analysis.py`; числа README взято звідси.",
-        f"SHA-256 `split.csv`: `{sha256_file(SPLIT_CSV)}` - однаковий у всіх 7 журналах.",
+        "# Результати команди аналізу",
+        f"SHA-256 `split.csv`: `{sha256_file(P.split_csv)}` - однаковий у всіх 7 журналах.",
         "## Сім запусків\n\n" + table_md,
         "## Розклад ефектів\n\n" + effects_md,
         "## Вибір конфігурації\n\n" + selection_md + "\n\n" + noise_note,
         "## Test\n\n" + test_md,
         "## П'ять характерних помилок\n\n" + err_md,
     ])
-    (OUT_DIR / "analysis.md").write_text(report + "\n", encoding="utf-8")
-    write_json(OUT_DIR / "analysis.json", {
+    (P.out_dir / "analysis.md").write_text(report + "\n", encoding="utf-8")
+    write_json(P.out_dir / "analysis.json", {
         "effects": eff, "selection": sel, "noise_note": noise_note,
         "test": {"macro_f1": f1_test, "accuracy": acc, "n": n, "se_accuracy": se,
                  "confusion_matrix": cm.tolist(), "classes": CLASSES},
         "errors": errors,
     })
-    print(f"\nЗбережено: {OUT_DIR / 'analysis.md'}, рисунки в {FIG_DIR}/")
+    print(f"\nЗбережено: outputs/analysis.md, рисунки в figures/")
 
 
 if __name__ == "__main__":

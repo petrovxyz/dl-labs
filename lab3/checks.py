@@ -1,4 +1,4 @@
-"""Перевірки пунктів 1–2: поділ, пакет після перетворень, початкова втрата, режими, дослід з BN."""
+"""Перевірки до навчання: пакет після перетворень, початкова втрата, режими, дослід з BN."""
 
 from __future__ import annotations
 
@@ -11,17 +11,22 @@ import matplotlib.pyplot as plt  # noqa: E402
 import torch  # noqa: E402
 from torch import nn  # noqa: E402
 
-from common import CLASSES, FIG_DIR, NUM_CLASSES  # noqa: E402
+from common import CLASSES, NUM_CLASSES, P  # noqa: E402
 from data import denormalize, train_loader  # noqa: E402
-from model import REGIMES, TOP_MODULES, TOTAL_PARAMS, build_model, count_params, set_train_mode  # noqa: E402
+from model import (  # noqa: E402
+    REGIMES, TOP_MODULES, TOTAL_PARAMS, build_model, count_params, frozen_modules, set_train_mode,
+)
 
-BN_BUFFERS = ("running_mean", "running_var", "num_batches_tracked")
+# Ковзні статистики BN; лічильник num_batches_tracked показано окремо.
+RUNNING_STATS = ("running_mean", "running_var")
+PARAM_NAMES = ("weight", "bias")
 
 
-# ---------------------------------------------------------------- пункт 1
+# ---------------------------------------------------------------- дані й початкова втрата
 
-def batch_figure(train_ds, path=FIG_DIR / "batch.png") -> str:
+def batch_figure(train_ds) -> str:
     """Перші 16 зображень першого навчального пакета так, як їх отримує модель."""
+    path = P.fig_dir / "batch.png"
     torch.manual_seed(0)
     x, y = next(iter(train_loader(train_ds)))
     fig, axes = plt.subplots(4, 4, figsize=(9, 9.6))
@@ -39,69 +44,71 @@ def batch_figure(train_ds, path=FIG_DIR / "batch.png") -> str:
     fig.savefig(path, dpi=110)
     plt.close(fig)
     return (
-        f"Рисунок `{path.relative_to(path.parent.parent)}`: перші 16 зображень пакета, "
+        f"Рисунок `figures/{path.name}`: перші 16 зображень пакета, "
         f"форма пакета {tuple(x.shape)}, діапазон після нормування [{x.min():.2f}; {x.max():.2f}]."
     )
 
 
 @torch.no_grad()
 def initial_loss(train_ds, device) -> tuple[str, dict]:
-    """L0 на першому пакеті до жодного кроку для scratch і frozen (зерно 1)."""
+    """L0 на першому пакеті до кроків оптимізатора (scratch і frozen, зерно 1)."""
     criterion = nn.CrossEntropyLoss()
     ln6 = math.log(NUM_CLASSES)
     rows, data = [], {}
     for regime in ("scratch", "frozen"):
         model, _ = build_model(regime, 1, device)
         loader = train_loader(train_ds)
-        set_train_mode(model, regime)
-        body = nn.Sequential(*list(model.children())[:-1])
-        all_losses, all_n, first = [], [], None
-        for x, y in loader:  # 1-й пакет - це L0; решта лише для довідки (середнє за епохою без кроків)
+        set_train_mode(model, frozen_modules(model, regime))
+        # Ознаки після глобального пулінгу - для пояснення відхилення L0 від ln 6.
+        pooled = []
+        hook = model.avgpool.register_forward_hook(lambda m, i, o: pooled.append(o.flatten(1)))
+        losses, sizes = [], []
+        for x, y in loader:
             x, y = x.to(device), y.to(device)
-            feats = body(x).flatten(1)
-            logits = model.fc(feats)
-            all_losses.append(criterion(logits, y).item())
-            all_n.append(len(y))
-            if first is None:
-                first = (feats, logits)
-        feats, logits = first
-        loss = all_losses[0]
+            logits_b = model(x)
+            losses.append(criterion(logits_b, y).item())
+            sizes.append(len(y))
+            if len(losses) == 1:
+                logits, feats = logits_b, pooled[0]
+            pooled.clear()
+        hook.remove()
+        loss = losses[0]
         sigma2 = logits.var(1).mean().item()
         stats = {
             "L0": loss,
             "ln6": ln6,
             "diff": loss - ln6,
             "logit_var_within_sample": sigma2,
-            "approx_ln6_plus_half_var": ln6 + 0.5 * (1 - 1 / NUM_CLASSES) * sigma2,
+            "estimate_ln6_plus_half_var": ln6 + 0.5 * (1 - 1 / NUM_CLASSES) * sigma2,
             "feature_norm_mean": feats.norm(dim=1).mean().item(),
             "max_prob_mean": logits.softmax(1).max(1).values.mean().item(),
-            "mean_over_all_batches_no_steps": sum(l * n for l, n in zip(all_losses, all_n)) / sum(all_n),
+            "mean_over_all_batches_no_steps": sum(l * n for l, n in zip(losses, sizes)) / sum(sizes),
         }
         data[regime] = stats
         rows.append(
             f"| {regime} | {loss:.4f} | {loss - ln6:+.4f} | {stats['feature_norm_mean']:.2f} | "
-            f"{sigma2:.3f} | {stats['approx_ln6_plus_half_var']:.4f} | "
+            f"{sigma2 ** 0.5:.3f} | {stats['estimate_ln6_plus_half_var']:.4f} | "
             f"{stats['mean_over_all_batches_no_steps']:.4f} |"
         )
         del model
     md = "\n".join([
         f"$\\ln 6 = {ln6:.4f}$.",
         "",
-        "| Режим | $L_0$ (1-й пакет) | $L_0 - \\ln 6$ | Норма ознак після GAP | "
-        "Дисперсія логітів у прикладі $\\sigma^2$ | $\\ln 6 + \\tfrac12(1-\\tfrac16)\\sigma^2$ | "
-        "Довідково: середнє за 38 пакетами без кроків |",
+        "| Режим | $L_0$ (1-й пакет) | $L_0 - \\ln 6$ | Норма ознак після глобального пулінгу | "
+        "Стандартне відхилення логітів у прикладі $\\sigma$ | $\\ln 6 + \\tfrac12\\cdot\\tfrac56\\sigma^2$ | "
+        "Довідково: середня втрата за 38 пакетами без кроків |",
         "| :-- | --: | --: | --: | --: | --: | --: |",
         *rows,
     ])
     return md, data
 
 
-# ---------------------------------------------------------------- пункт 2
+# ---------------------------------------------------------------- режими навчання
 
 def param_report(device) -> tuple[str, bool]:
     lines = [
         "| Режим | Усього параметрів | requires_grad=True | Очікувано | Групи AdamW (параметрів, lr) | "
-        "Заморожених в оптимізаторі | Усі trainable в оптимізаторі | Збіг |",
+        "Параметрів з requires_grad=False в оптимізаторі | Усі параметри з requires_grad=True в оптимізаторі | Збіг |",
         "| :-- | --: | --: | --: | :-- | --: | :-: | :-: |",
     ]
     all_ok = True
@@ -140,7 +147,7 @@ def _snapshot(model: nn.Module) -> dict:
 
 def _five_steps(model, opt, regime, train_ds, device, use_set_train_mode=True) -> list[float]:
     if use_set_train_mode:
-        set_train_mode(model, regime)
+        set_train_mode(model, frozen_modules(model, regime))
     else:
         model.train()  # навмисна помилка
     criterion = nn.CrossEntropyLoss()
@@ -158,12 +165,12 @@ def _five_steps(model, opt, regime, train_ds, device, use_set_train_mode=True) -
 
 
 def _module_changes(before: dict, after: dict) -> dict:
-    """Для кожного модуля верхнього рівня: чи змінився параметр, чи змінилась BN-статистика."""
+    """Для кожного модуля верхнього рівня: (параметри змінилися, ковзні статистики змінилися або None)."""
     result = {}
     for mod in TOP_MODULES:
         keys = [k for k in before if k.split(".")[0] == mod]
-        bn_keys = [k for k in keys if k.rsplit(".", 1)[-1] in BN_BUFFERS]
-        param_keys = [k for k in keys if k not in bn_keys]
+        bn_keys = [k for k in keys if k.rsplit(".", 1)[-1] in RUNNING_STATS]
+        param_keys = [k for k in keys if k.rsplit(".", 1)[-1] in PARAM_NAMES]
         params_changed = any(not torch.equal(before[k], after[k]) for k in param_keys)
         if bn_keys:
             bn_changed = any(not torch.equal(before[k], after[k]) for k in bn_keys)
@@ -202,7 +209,7 @@ def change_report(train_ds, device) -> tuple[str, bool]:
 
 
 def bn_bug_experiment(train_ds, device) -> tuple[str, dict]:
-    """frozen з model.train() замість set_train_mode; порівняння з правильним варіантом."""
+    """frozen з model.train() замість set_train_mode, поруч правильний варіант."""
     out = {}
     for variant, use_stm in (("set_train_mode", True), ("model.train()", False)):
         model, opt = build_model("frozen", 1, device)

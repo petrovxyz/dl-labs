@@ -11,12 +11,12 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
-from common import CLASSES, EVAL_BATCH, IMG_SIZE, MEAN, STD, SPLIT_CSV, TRAIN_BATCH
+from common import CLASSES, EVAL_BATCH, IMG_SIZE, MEAN, STD, TRAIN_BATCH, P
 
 TRAIN_PER_CLASS = 200
 PARTS = ("train", "validation", "test")
 
-# Контрольна таблиця з умови: (кількість, сума числових імен файлів).
+# Контрольна таблиця поділу: (кількість, сума числових імен файлів).
 CONTROL = {
     "buildings": {"train": (200, 1_996_761), "validation": (218, 4_837_323), "test": (219, 4_837_559)},
     "forest": {"train": (200, 2_032_625), "validation": (237, 5_276_962), "test": (237, 5_291_326)},
@@ -42,7 +42,11 @@ def sorted_files(folder: Path) -> list[str]:
 
 
 def build_split(data_root: Path) -> list[dict]:
-    """Поділ строго за процедурою з умови. Повертає рядки split.csv."""
+    """Детермінований поділ; повертає рядки split.csv."""
+    for folder in (train_dir(data_root), test_dir(data_root)):
+        if not all((folder / c).is_dir() for c in CLASSES):
+            raise SystemExit(f"ПОМИЛКА: у {folder} немає тек класів {CLASSES}; "
+                             "--data має вказувати на розпакований архів із seg_train/ і seg_test/")
     rows: list[dict] = []
 
     # train: один генератор на всі класи по черзі.
@@ -69,14 +73,16 @@ def build_split(data_root: Path) -> list[dict]:
     return rows
 
 
-def write_split(rows: list[dict], path: Path = SPLIT_CSV) -> None:
+def write_split(rows: list[dict], path: Path | None = None) -> None:
+    path = path or P.split_csv
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["file", "label", "part"], lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
 
-def read_split(path: Path = SPLIT_CSV) -> list[dict]:
+def read_split(path: Path | None = None) -> list[dict]:
+    path = path or P.split_csv
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
@@ -100,7 +106,7 @@ def control_table(rows: list[dict]) -> dict:
 
 
 def check_split(rows: list[dict]) -> tuple[bool, str]:
-    """Звірка з контрольною таблицею і перевірка, що жоден файл не входить у дві частини."""
+    """Звірка з контрольною таблицею; перевірка, що частини не перетинаються."""
     table = control_table(rows)
     expected = dict(CONTROL)
     expected["Разом"] = CONTROL_TOTAL
@@ -190,8 +196,8 @@ def transform_settings() -> dict:
 class SceneDataset(Dataset):
     """Зображення частини поділу в порядку split.csv.
 
-    Зображення відкриваються через Pillow з .convert("RGB") один раз і тримаються в пам'яті
-    (у незміненому вигляді); випадкові перетворення застосовуються заново при кожному зверненні.
+    Зображення читаються один раз і зберігаються в пам'яті; перетворення застосовуються
+    при кожному зверненні, тож аугментації щоразу нові.
     """
 
     def __init__(self, rows: list[dict], data_root: Path, transform):
@@ -220,13 +226,13 @@ def load_part(data_root: Path, part: str, rows: list[dict] | None = None) -> Sce
 
 
 def load_test_set(data_root: Path) -> SceneDataset:
-    """Єдина точка завантаження test; викликається лише з analysis.py."""
+    """Єдине місце завантаження test; викликається лише з analysis.py."""
     return SceneDataset(part_rows(read_split(), "test"), data_root, eval_transform())
 
 
 def train_loader(ds: SceneDataset) -> DataLoader:
-    # Без власного generator чи sampler: перемішування й аугментації беруть випадковість
-    # із глобального генератора PyTorch, засіяного під час побудови моделі.
+    # Перемішування й аугментації беруть випадковість з глобального генератора PyTorch,
+    # засіяного зерном запуску.
     return DataLoader(ds, batch_size=TRAIN_BATCH, shuffle=True, drop_last=False, num_workers=0)
 
 

@@ -1,7 +1,6 @@
-"""Команда навчання ЛР3.
+"""Команда навчання: поділ → перевірки → сім запусків → журнали → вибір за validation → lab3_model.pt.
 
-Поділ → перевірки пунктів 1–2 → сім запусків → журнали → вибір за validation → lab3_model.pt.
-Test тут не завантажується і не використовується.
+Test не використовується.
 
     uv run python train.py --data /шлях/до/intel-image-classification
 """
@@ -18,7 +17,7 @@ import torch
 
 from checks import batch_figure, bn_bug_experiment, change_report, initial_loss, param_report
 from common import (
-    CLASSES, EPOCHS, IMG_SIZE, MODEL_PATH, OUT_DIR, RUNS, SPLIT_CSV, env_info, git_info, pick_device,
+    CLASSES, P, EPOCHS, IMG_SIZE, RUNS, env_info, git_info, pick_device,
     read_json, run_dir, select_run, sha256_file, write_json,
 )
 from data import build_split, check_split, eval_loader, load_part, loader_settings, read_split, transform_settings, write_split
@@ -33,20 +32,25 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data", required=True, type=Path,
                     help="тека розпакованого архіву (містить seg_train/ і seg_test/)")
+    ap.add_argument("--out", type=Path, default=None,
+                    help="тека результатів (split.csv, runs/, lab3_model.pt, outputs/, figures/); за замовчуванням - тека коду")
     ap.add_argument("--device", default="auto", help="auto | cpu | mps | cuda")
-    ap.add_argument("--checks-only", action="store_true", help="лише поділ і перевірки пунктів 1–2")
+    ap.add_argument("--checks-only", action="store_true", help="лише поділ і перевірки, без запусків")
     args = ap.parse_args()
 
     device = pick_device(args.device)
     log(f"Пристрій: {device}")
-    OUT_DIR.mkdir(exist_ok=True)
+    if args.out is not None:
+        P.set_root(args.out)
+    P.out_dir.mkdir(parents=True, exist_ok=True)
+    log(f"Тека результатів: {P.root}")
 
     # ------------------------------------------------------------ поділ
     rows = build_split(args.data)
     split_ok, split_md = check_split(rows)
     write_split(rows)
-    rows = read_split()  # далі все - лише за split.csv
-    split_sha = sha256_file(SPLIT_CSV)
+    rows = read_split()  # далі дані беруться лише з split.csv
+    split_sha = sha256_file(P.split_csv)
     log(split_md)
     log(f"SHA-256 split.csv: {split_sha}")
     if not split_ok:
@@ -57,7 +61,7 @@ def main() -> None:
     val_loader = eval_loader(val_ds)
     log(f"train: {len(train_ds)}, validation: {len(val_ds)}")
 
-    # ------------------------------------------------------------ перевірки 1–2
+    # ------------------------------------------------------------ перевірки
     log("\n== Перевірки до навчання ==")
     batch_md = batch_figure(train_ds)
     loss_md, loss_data = initial_loss(train_ds, device)
@@ -70,7 +74,7 @@ def main() -> None:
     log(bug_md)
 
     checks_md = "\n\n".join([
-        f"# Перевірки пунктів 1–2\n\nПристрій: {env_info(device)['device']}. "
+        f"# Перевірки до навчання\n\nПристрій: {env_info(device)['device']}. "
         f"Згенеровано `train.py` {dt.datetime.now().isoformat(timespec='seconds')}.",
         "## Поділ\n\n" + split_md + f"\n\nSHA-256 `split.csv`: `{split_sha}`",
         "## Пакет після перетворень\n\n" + batch_md,
@@ -79,8 +83,8 @@ def main() -> None:
         "## Що змінюється за 5 кроків (set_train_mode, зерно 1)\n\n" + change_md,
         "## Дослід з навмисною помилкою: frozen з model.train()\n\n" + bug_md,
     ])
-    (OUT_DIR / "checks.md").write_text(checks_md + "\n", encoding="utf-8")
-    write_json(OUT_DIR / "checks.json", {
+    (P.out_dir / "checks.md").write_text(checks_md + "\n", encoding="utf-8")
+    write_json(P.out_dir / "checks.json", {
         "split_ok": split_ok, "params_ok": params_ok, "changes_ok": change_ok,
         "initial_loss": loss_data,
         "bn_bug": {k: {kk: vv for kk, vv in v.items() if kk != "changes"} for k, v in bug_data.items()},
@@ -134,7 +138,7 @@ def main() -> None:
         del model, optimizer
 
     # ------------------------------------------------------------ вибір за validation
-    for num, regime, seed in RUNS:  # контроль: журнали на диску відповідають щойно отриманим числам
+    for num, regime, seed in RUNS:  # журнали на диску збігаються з отриманими числами
         assert read_json(run_dir(regime, seed) / "run.json")["final"]["val_macro_f1"] == next(
             r["F"] for r in records if r["regime"] == regime and r["seed"] == seed)
     choice = select_run(records)
@@ -145,11 +149,11 @@ def main() -> None:
         "seed": choice["seed"],
         "classes": CLASSES,
         "img_size": IMG_SIZE,
-    }, MODEL_PATH)
-    write_json(OUT_DIR / "selection.json", choice)
+    }, P.model_path)
+    write_json(P.out_dir / "selection.json", choice)
     log(f"\nВибрано: {choice['regime']}, зерно {choice['seed']}, macro-F1 val {choice['F']:.4f}")
     log(f"Середні за режимами: {choice['regime_means']}")
-    log(f"Збережено {MODEL_PATH.name}")
+    log(f"Збережено {P.model_path.name}")
 
 
 if __name__ == "__main__":
